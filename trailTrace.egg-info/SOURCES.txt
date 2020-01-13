@@ -1,0 +1,5 @@
+setup.py
+trailTrace.egg-info/PKG-INFO
+trailTrace.egg-info/SOURCES.txt
+trailTrace.egg-info/dependency_links.txt
+trailTrace.egg-info/top_level.txt

@@ -1,5 +1,6 @@
-import ServoDriver
-import GPIO
+from lib.servo import ServoDriver
+from lib.gpio import GPIO
+
 #import pigpio
 
 #builtins.pi = pigpio.pi()

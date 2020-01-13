@@ -6,7 +6,7 @@
 # This module contains the methods and members 
 # needed to drive the servos.
 
-import GPIO
+from lib.gpio import GPIO
 import signal
 
 
