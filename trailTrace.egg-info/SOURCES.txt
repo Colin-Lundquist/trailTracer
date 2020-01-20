@@ -1,3 +1,4 @@
+README.txt
 setup.py
 trailTrace.egg-info/PKG-INFO
 trailTrace.egg-info/SOURCES.txt

@@ -15,7 +15,7 @@ class PanServo:
     # Class attributes
     POS_MAX = 2380     # The highest value allowed for the pan servo
     POS_MIN = 520      # The lowest value allowed for the pan servo
-    DEFAULT_POS = 1450 # Initial position of pan servo
+    DEFAULT_POS = 2000 # Initial position of pan servo
     DEFAULT_VEL = 0    # By default, the servo does not move!
 
     #position = DEFAULT_POS # set the position to default
