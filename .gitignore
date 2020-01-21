@@ -1,0 +1,7 @@
+# File:		.gitignore
+# Author:	Colin Lundquist
+# Date:		Jan 20, 2020
+#
+# Specifies files not to be included in the github repository.
+
+**/__pycache__
