@@ -1,3 +1,11 @@
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#   File:       Tracker_Demo.py
+#   Author:     Colin Lundquist
+#   Date:       1/22/2020
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~
+
 from imutils.video import VideoStream
 from imutils.video import FPS
 
@@ -12,19 +20,26 @@ import cv2
 # pause duration when camera wakes up
 CAMERA_BOOTTIME = 0.75
 
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#   Servo setup
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 servo = ServoDriver.PanServo()
 
-# creat tracker
-tracker = cv2.TrackerMedianFlow_create()
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#   Video setup
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tracker = cv2.TrackerMedianFlow_create() # create tracker
+print("Beginning PiCam stream...")
+time.sleep(CAMERA_BOOTTIME) # allow camera to warmup
+video = VideoStream(src=0).start() # begin camera stream
+
+
 
 #initialize bounding box
 BBox = None
 
-# begin camera stream
-print("Beginning PiCam stream...")
-video = VideoStream(src=0).start()
-# allow camera to warm up
-time.sleep(CAMERA_BOOTTIME)
+
+
 
 # loop over every frame in video object
 while True:
