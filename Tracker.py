@@ -1,36 +1,78 @@
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#  File:       Tracker.py
+#   Author:     Colin Lundquist
+#   Date:       1/22/2020
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~
+
 from imutils.video import VideoStream
 from imutils.video import FPS
 
-#trailTracer libraries
+# trailTracer libraries
 from lib.servo import ServoDriver
 from lib.gpio import GPIO
 
+import argparse
 import imutils
 import time
 import cv2
 
-# pause duration when camera wakes up
-CAMERA_BOOTTIME = 0.75
+CAMERA_BOOTTIME = 0.5
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#   Load Data
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+video_data = open("./data/video_data","r+") # open video data file
+video_num = int(video_data.read())         # read the current video number
+video_num += 1                             # increment video_number: next video will be ++
+video_data.seek(0,0)
+video_data.write(str(video_num))
+video_data.close()
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#   Video Setup
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+parser = argparse.ArgumentParser(description='trailTrace Tracking demo.')
+parser.add_argument('-v', help='Save video to file', action='store_true')
+args = parser.parse_args()
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#   Video Setup
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+print("Beginning PiCam stream...")  # notify user
+video = VideoStream(src=0).start()  # start camera stream
+time.sleep(CAMERA_BOOTTIME)         # allow camera to warm up
+
+if args.v is True: # Create video writer object if video argument is passed
+    video_out = cv2.VideoWriter(filename='./Videos/trailTrace_%d.mp4' % video_num, 
+            fourcc=cv2.VideoWriter_fourcc('X','2','6','4'), 
+            fps=30, 
+            frameSize=(640,480))
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#   Tracker Setup
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+tracker = cv2.TrackerMedianFlow_create() # Create tracker
+BBox = None                              # Bounding box initialize
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#   Servo Setup
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 servo = ServoDriver.Servo()
-#servo2 = ServoDriver.TiltServo()
 
-# creat tracker
-tracker = cv2.TrackerMedianFlow_create()
 
-#initialize bounding box
-BBox = None
+while True: # loop over every frame in video object
 
-# begin camera stream
-print("Beginning PiCam stream...")
-video = VideoStream(src=0).start()
-# allow camera to warm up
-time.sleep(CAMERA_BOOTTIME)
-
-# loop over every frame in video object
-while True:
-
-    frame = video.read()
+    frame = video.read() # get video frame
     
     # if the video object ends, exit program
     if frame is None:
@@ -76,13 +118,10 @@ while True:
                 servo.p_vel = 0.0
 
     
-        # rotate image
-    #M = cv2.getRotationMatrix2D(midpoint,180,1.0)
-    #frame = cv2.warpAffine(frame, M, dimensions)
+    if args.v is True: # Write to video
+        video_out.write(frame)
 
-    
-    # show frame in window
-    cv2.imshow("My cute tracker :)", frame)
+    cv2.imshow("My cute tracker :)", frame) # Show the frame on monitor
     key = cv2.waitKey(1) & 0xFF
 
 
@@ -93,6 +132,7 @@ while True:
     elif key == ord("q"):
         break
 
+video_out.release()
 video.release()
 
 cv2.destroyAllWindows()
