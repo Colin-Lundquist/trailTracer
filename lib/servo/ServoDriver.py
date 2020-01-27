@@ -6,7 +6,7 @@
 # This module contains the methods and members 
 # needed to drive the servos.
 
-from lib.gpio import GPIO
+from lib.gpio import IODriver
 import signal
 
 class Servo:
@@ -49,14 +49,14 @@ class Servo:
         #print('Position: ',PanServo.position, 'Velocity: ', PanServo.velocity)
         if (((self.p_pos + self.p_vel) <= self.PAN_POS_MAX) and ((self.p_pos + self.p_vel) >= self.PAN_POS_MIN)):
             self.p_pos = self.p_pos + self.p_vel
-            GPIO.pi.set_servo_pulsewidth(self.PAN_GPIO_PIN, self.p_pos)
+            IODriver.pi.set_servo_pulsewidth(self.PAN_GPIO_PIN, self.p_pos)
             
         else:
             self.p_vel = self.PAN_DEFAULT_VEL
  
         if (((self.t_pos + self.t_vel) <= self.TILT_POS_MAX) and ((self.t_pos + self.t_vel) >= self.TILT_POS_MIN)):
             self.t_pos = self.t_pos + self.t_vel
-            GPIO.pi.set_servo_pulsewidth(self.TILT_GPIO_PIN, self.t_pos)
+            IODriver.pi.set_servo_pulsewidth(self.TILT_GPIO_PIN, self.t_pos)
             
         else:
             self.t_vel = self.TILT_DEFAULT_VEL
