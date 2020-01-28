@@ -12,9 +12,9 @@
 from imutils.video import WebcamVideoStream
 
 # trailTracer libraries
-from lib.servo import ServoDriver
-from lib.gpio import IODriver
-from lib.fan import FanDriver
+from trailTracer.servo import ServoDriver
+from trailTracer.gpio import IODriver
+from trailTracer.fan import FanDriver
 
 import argparse
 import imutils

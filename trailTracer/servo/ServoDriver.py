@@ -6,7 +6,7 @@
 # This module contains the methods and members 
 # needed to drive the servos.
 
-from lib.gpio import IODriver
+from trailTracer.gpio import IODriver
 import signal
 
 class Servo:

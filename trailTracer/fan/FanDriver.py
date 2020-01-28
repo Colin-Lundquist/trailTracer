@@ -6,7 +6,7 @@
 #~~~~~~~~~~~~~~~~~~~~~
 #~~~~~~~~
 
-from lib.gpio import IODriver
+from trailTracer.gpio import IODriver
 
 class Fan:
     
