@@ -11,54 +11,94 @@ import signal
 
 class Servo:
 
-    # Pan Servo class attributes 
-    PAN_POS_MAX = 2380     # The highest value allowed for the pan servo
-    PAN_POS_MIN = 520      # The lowest value allowed for the pan servo
-    PAN_DEFAULT_POS = 2000 # Initial position of pan servo
-    PAN_DEFAULT_VEL = 0    # By default, the servo does not move!
-    PAN_GPIO_PIN = 14
-
-    # Tilt Servo class attributes
-    TILT_POS_MAX = 1800      # The highest value allowed for the tilt servo
-    TILT_POS_MIN = 1200      # The lowest value allowed for the tilt servo
-    TILT_DEFAULT_POS = 1550  # Initial position of pan servo
-    TILT_DEFAULT_VEL = 0     # By default, the servo does not move!
-    TILT_GPIO_PIN = 25
- 
     #position = DEFAULT_POS # set the position to default
     #velocity = DEFAULT_VEL # set velocity to default
 
-    def __init__(self, p_pos=PAN_DEFAULT_POS,  t_pos=TILT_DEFAULT_POS):
-        
-        # Pan Instance attributes
-        self.p_pos = p_pos # Initialize pan position
-        self.p_vel = self.PAN_DEFAULT_POS # Initialize velocity
-        # Tilt Instance attributes
-        self.t_pos = t_pos # initialize tilt position 
-        self.t_vel = self.TILT_DEFAULT_VEL
+    
 
+    POS_MAX = None
+    POS_MIN = None
+    DEFAULT_POS = None
+    DEFAULT_VEL = None
+    DEFAULT_POS = None
+    
+    # PID control:
+    TIME_STEP = 0.01
+    DEAD_ZONE = 0.5     # minimum velocity ot be applied to servo
+    P_FACTOR = 0.0
+    I_FACTOR = 0.0
+    D_FACTOR = 0.0
+    
+    prev_error = 0    
+    integral = 0        # integral component 'I'
+
+    
+
+
+    def __init__(self, pos=None):
+    
+        if pos is None:
+            self.pos = self.DEFAULT_POS
+        else:
+            self.pos = pos                  # Initialize position
+        self.vel = self.DEFAULT_VEL     # Initialize velocity
         
-        signal.signal(signal.SIGALRM, self.SERVO_1MS_HANDLER)
-        signal.setitimer(signal.ITIMER_REAL, 1.0, 0.02)
         
         
-        #signal.alarm(0.01)
-    def SERVO_1MS_HANDLER(self, frame, other):
+    def update(self, error, axis_range):
+      
+        self.integral = self.integral + error * self.TIME_STEP     
+        self.derivative = (error - self.prev_error) / self.TIME_STEP
+        self.vel = self.P_FACTOR * error + self.I_FACTOR * self.integral - self.D_FACTOR * self.derivative
+        self.prev_error = error
+        print(self.vel)
         
         #os.system("clear")
         #print('Position: ',PanServo.position, 'Velocity: ', PanServo.velocity)
-        if (((self.p_pos + self.p_vel) <= self.PAN_POS_MAX) and ((self.p_pos + self.p_vel) >= self.PAN_POS_MIN)):
-            self.p_pos = self.p_pos + self.p_vel
-            IODriver.pi.set_servo_pulsewidth(self.PAN_GPIO_PIN, self.p_pos)
-            
-        else:
-            self.p_vel = self.PAN_DEFAULT_VEL
- 
-        if (((self.t_pos + self.t_vel) <= self.TILT_POS_MAX) and ((self.t_pos + self.t_vel) >= self.TILT_POS_MIN)):
-            self.t_pos = self.t_pos + self.t_vel
-            IODriver.pi.set_servo_pulsewidth(self.TILT_GPIO_PIN, self.t_pos)
-            
-        else:
-            self.t_vel = self.TILT_DEFAULT_VEL
+        #print(self.pos)
+        #print(self.vel)
+        #print(self.POS_MAX)
+        #print(self.POS_MIN)
 
+        
+        
+        if (abs(self.vel) > self.DEAD_ZONE):
+            if (((self.pos + self.vel) <= self.POS_MAX) and ((self.pos + self.vel) >= self.POS_MIN)):
+                self.pos = self.pos + self.vel
+                IODriver.pi.set_servo_pulsewidth(self.GPIO_PIN, self.pos)
+        else:
+            vel = self.DEFAULT_VEL
+
+class PanServo(Servo):
+
+    # Pan Servo class attributes 
+    POS_MAX = 2380     # The highest value allowed for the pan servo
+    POS_MIN = 520      # The lowest value allowed for the pan servo
+    DEFAULT_POS = 2000 # Initial position of pan servo
+    DEFAULT_VEL = 0    # By default, the servo does not move!
+    GPIO_PIN = 14
+
+    # PID control:
+    TIME_STEP = 0.01
+    DEAD_ZONE = 0.5     # minimum velocity ot be applied to servo
+    P_FACTOR = -0.1
+    I_FACTOR = 0.0
+    D_FACTOR = 0.0018
+
+
+class TiltServo(Servo):
+
+    # Tilt Servo class attributes
+    POS_MAX = 1800      # The highest value allowed for the tilt servo
+    POS_MIN = 1200      # The lowest value allowed for the tilt servo
+    DEFAULT_POS = 1550  # Initial position of pan servo
+    DEFAULT_VEL = 0     # By default, the servo does not move!
+    GPIO_PIN = 25
+ 
+    # PID control:
+    TIME_STEP = 0.01
+    DEAD_ZONE = 0.5     # minimum velocity ot be applied to servo
+    P_FACTOR = 0.09
+    I_FACTOR = 0.0
+    D_FACTOR = 0.0018
 

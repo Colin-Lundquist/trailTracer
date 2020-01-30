@@ -24,31 +24,39 @@ import cv2
 CAMERA_BOOTTIME = 0.5
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#   Argument Parsing
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+parser = argparse.ArgumentParser(description='trailTrace Tracking demo...\n\n')
+parser.add_argument('-v', help='Save video to file', action='store_true')
+parser.add_argument('-r', help='Restore trailTracer:    Delete Videos', action='store_true')
+args = parser.parse_args()
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Fan Setup
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 fan = FanDriver.Fan()    # Create fan object
-fan.set(speed=1.0, on=1) # Fan on, speed full
+fan.set(speed=0.8, on=1) # Fan on, speed 80%
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Load Data
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 video_data = open("./data/video_data","r+") # open video data file
-video_num = int(video_data.read())         # read the current video number
+video_num = int(video_data.readline())               # read the current video number
+print(video_num)
 video_num += 1                             # increment video_number: next video will be ++
-video_data.seek(0,0)
-video_data.write(str(video_num))
+video_data.seek(0,0)                         # move to beginning
+
+if args.r is True:                                                  # User requested videos to be deleted
+    user_in = input('Restore: are you sure? (y/n): ')
+    if user_in.lower() == 'y' or user_in.lower() == 'yes':          # Test for any yes response
+        video_data.write(bytes(0))                                       # restore video number to zero   
+    quit()
+
+video_data.write(str(video_num))            # write newe num
 video_data.close()
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#   Argument Parsing
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-parser = argparse.ArgumentParser(description='trailTrace Tracking demo.')
-parser.add_argument('-v', help='Save video to file', action='store_true')
-args = parser.parse_args()
-
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Video Setup
@@ -77,16 +85,22 @@ BBox = None                              # Bounding box initialize
 #   Servo Setup
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-servo = ServoDriver.Servo()
+pan_servo = ServoDriver.PanServo()
+tilt_servo = ServoDriver.TiltServo()
+
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Main Loop
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+prev_time = 0;
+
 while True: # loop over every frame in video object
 
+       
+        
     frame = video.read() # get video frame
-    
+    #print(time.clock_gettime(time.CLOCK_REALTIME))   
     # if the video object ends, exit program
     if frame is None:
         break
@@ -112,25 +126,26 @@ while True: # loop over every frame in video object
 
             cv2.circle(frame, center, 10, (0,0,255), -1)
 
+            current_time = time.clock_gettime(time.CLOCK_REALTIME) # get current time
+ 
+            
+            if current_time - prev_time >= 0.01:
+            
+                print("servo update")
+
+
             # tilt servo using proportional movement
-            print(center)
-            proportion_tilt = center[1] - (dimensions[0] / 2)
-            proportion_tilt = 6 * (float(proportion_tilt / (dimensions[0] / 2)))
-            if proportion_tilt > 0.15 or proportion_tilt < -0.15:
-                servo.t_vel = proportion_tilt
-            else:
-                servo.t_vel = 0.0
-            #servo.t_vel = 1.0
+            #print(center)
+                error_tilt = center[1] - (dimensions[0] / 2)
+                tilt_servo.update(error=error_tilt, axis_range=(dimensions[0] / 2))
+            
+                       # pan servo using proportional movement
+                error_pan = center[0] - (dimensions[1] / 2)
+                pan_servo.update(error=error_pan, axis_range=(dimensions[1] / 2))
+            prev_time = current_time
 
-            # pan servo using proportional movement
-            proportion = center[0] - (dimensions[1] / 2)
-            proportion = -6 * (float(proportion / (dimensions[1] / 2)))
-            if proportion > 0.15 or proportion < -0.15:
-                servo.p_vel = proportion
-            else:
-                servo.p_vel = 0.0
 
-    
+
     if args.v is True: # Write to video
         video_out.write(frame)
 
