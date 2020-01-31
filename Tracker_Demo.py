@@ -19,6 +19,7 @@ from trailTracer.fan import FanDriver
 
 import argparse
 import imutils
+import signal
 import time
 import cv2
 
@@ -94,6 +95,27 @@ pan_servo = ServoDriver.PanServo(pos=servo_pos["pan"])
 tilt_servo = ServoDriver.TiltServo(pos=servo_pos["tilt"])
 #pan_servo.moveDefault(pan_current = int(servo_pos["pan"]), tilt_current = int(servo_pos["pan"])
 
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#   Signal Handlers
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def shutdown():
+    fan.set(on=0)
+    servo_data.seek(0,0)
+    servo_data.writelines([str(int(pan_servo.pos))+'\n', str(int(tilt_servo.pos))+'\n'])
+    
+    if args.v is True:
+        video_out.release()
+
+    cv2.destroyAllWindows()
+
+
+
+def ctrl_c_handler(sig, frame):
+    shutdown()
+    
+signal.signal(signal.SIGINT, ctrl_c_handler)
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Main Loop
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -104,9 +126,9 @@ while True: # loop over every frame in video object
 
        
         
-    frame = video.read() # get video frame
+    img = video.read() # get video frame
     #print(time.clock_gettime(time.CLOCK_REALTIME))   
-    frame = cv2.blur(frame,(10,10))
+    frame = cv2.blur(img,(10,10))
     #frame = imutils.resize(frame, width=320)
     # if the video object ends, exit program
     if frame is None:
@@ -137,8 +159,6 @@ while True: # loop over every frame in video object
  
            
             if current_time - prev_time >= 0.01:
-            
-                print("servo update")
 
 
             # tilt servo using proportional movement
@@ -154,11 +174,12 @@ while True: # loop over every frame in video object
 
 
     if args.v is True: # Write to video
-        video_out.write(frame)
+        video_out.write(img)
     
 
 
     cv2.imshow("My cute tracker :)", frame) # Show the frame on monitor
+    cv2.imshow("Output", img)
     key = cv2.waitKey(1) & 0xFF
 
 
@@ -167,16 +188,7 @@ while True: # loop over every frame in video object
         tracker.init(frame, BBox)
 
     elif key == ord("q"):
-        fan.set(on=0)
-        servo_data.seek(0,0)
-        servo_data.writelines([str(int(pan_servo.pos))+'\n', str(int(tilt_servo.pos))+'\n'])
-        
+        shutdown()       
         break
-
-if args.v is True:
-    video_out.release()
-
-cv2.destroyAllWindows()
-
 
 
