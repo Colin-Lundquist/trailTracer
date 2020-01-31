@@ -7,60 +7,44 @@
 # needed to drive the servos.
 
 from trailTracer.gpio import IODriver
-import signal
 
 class Servo:
-
-    #position = DEFAULT_POS # set the position to default
-    #velocity = DEFAULT_VEL # set velocity to default
-
     
-
     POS_MAX = None
     POS_MIN = None
     DEFAULT_POS = None
     DEFAULT_VEL = None
     DEFAULT_POS = None
     
-    # PID control:
-    TIME_STEP = 0.01
-    DEAD_ZONE = 0.5     # minimum velocity ot be applied to servo
-    P_FACTOR = 0.0
-    I_FACTOR = 0.0
-    D_FACTOR = 0.0
+    # PID control constants
+    TIME_STEP = 0.01    # time between updates
+    DEAD_ZONE = 0.5     # minimum velocity to be applied to servo
+    P_FACTOR = 0.0      # proportional multiplier (increases proportional effect)
+    I_FACTOR = 0.0      # integral multiplier (increases integral effect)
+    D_FACTOR = 0.0      # derivitave multiplier (increases derivitave effect)
     
-    prev_error = 0    
+    prev_error = 0      # how much the servo was in error at Time: now - TIME_STEP 
     integral = 0        # integral component 'I'
 
-    
 
-
-    def __init__(self, pos=None):
+    # class constructor
+    def __init__(self, pos=None):           
     
         if pos is None:
-            self.pos = self.DEFAULT_POS
+            self.pos = self.DEFAULT_POS     # set default position
         else:
             self.pos = pos                  # Initialize position
-        self.vel = self.DEFAULT_VEL     # Initialize velocity
-        
+        self.vel = self.DEFAULT_VEL         # Initialize velocity        
         
         
     def update(self, error, axis_range):
       
-        self.integral = self.integral + error * self.TIME_STEP     
-        self.derivative = (error - self.prev_error) / self.TIME_STEP
-        self.vel = self.P_FACTOR * error + self.I_FACTOR * self.integral - self.D_FACTOR * self.derivative
-        self.prev_error = error
-        print(self.vel)
+        self.integral = self.integral + error * self.TIME_STEP             # Integral ramps up based on time in error
+        self.derivative = (error - self.prev_error) / self.TIME_STEP       # Derivitave dampens based on speed
         
-        #os.system("clear")
-        #print('Position: ',PanServo.position, 'Velocity: ', PanServo.velocity)
-        #print(self.pos)
-        #print(self.vel)
-        #print(self.POS_MAX)
-        #print(self.POS_MIN)
-
-        
+        self.vel = self.P_FACTOR * error + self.I_FACTOR * self.integral \ # Combine all of P,I,D with their factors
+            - self.D_FACTOR * self.derivative
+        self.prev_error = error             # save error value for next time
         
         if (abs(self.vel) > self.DEAD_ZONE):
             if (((self.pos + self.vel) <= self.POS_MAX) and ((self.pos + self.vel) >= self.POS_MIN)):
@@ -71,16 +55,16 @@ class Servo:
 
 class PanServo(Servo):
 
-    # Pan Servo class attributes 
-    POS_MAX = 2380     # The highest value allowed for the pan servo
-    POS_MIN = 520      # The lowest value allowed for the pan servo
-    DEFAULT_POS = 2000 # Initial position of pan servo
-    DEFAULT_VEL = 0    # By default, the servo does not move!
+    # Pan Servo class attribute redefinitions
+    POS_MAX = 2380     
+    POS_MIN = 520      
+    DEFAULT_POS = 2000 
+    DEFAULT_VEL = 0 
     GPIO_PIN = 14
 
     # PID control:
     TIME_STEP = 0.01
-    DEAD_ZONE = 0.5     # minimum velocity ot be applied to servo
+    DEAD_ZONE = 0.5
     P_FACTOR = -0.1
     I_FACTOR = 0.0
     D_FACTOR = 0.0018
@@ -88,16 +72,16 @@ class PanServo(Servo):
 
 class TiltServo(Servo):
 
-    # Tilt Servo class attributes
-    POS_MAX = 1800      # The highest value allowed for the tilt servo
-    POS_MIN = 1200      # The lowest value allowed for the tilt servo
-    DEFAULT_POS = 1550  # Initial position of pan servo
-    DEFAULT_VEL = 0     # By default, the servo does not move!
+    # Tilt Servo class attribute redefinitions
+    POS_MAX = 1800      
+    POS_MIN = 1200  
+    DEFAULT_POS = 1550
+    DEFAULT_VEL = 0     
     GPIO_PIN = 25
  
     # PID control:
     TIME_STEP = 0.01
-    DEAD_ZONE = 0.5     # minimum velocity ot be applied to servo
+    DEAD_ZONE = 0.5     
     P_FACTOR = 0.09
     I_FACTOR = 0.0
     D_FACTOR = 0.0018

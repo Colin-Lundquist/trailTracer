@@ -16,6 +16,7 @@ from trailTracer.servo import ServoDriver
 from trailTracer.gpio import IODriver
 from trailTracer.fan import FanDriver
 
+
 import argparse
 import imutils
 import time
@@ -44,19 +45,23 @@ fan.set(speed=0.8, on=1) # Fan on, speed 80%
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 video_data = open("./data/video_data","r+") # open video data file
-video_num = int(video_data.readline())               # read the current video number
+video_num = int(video_data.readline())      # read the current video number
 print(video_num)
-video_num += 1                             # increment video_number: next video will be ++
-video_data.seek(0,0)                         # move to beginning
+video_num += 1                              # increment video_number: next video will be ++
+video_data.seek(0,0)                        # move to beginning
 
-if args.r is True:                                                  # User requested videos to be deleted
+if args.r is True:                                              # User requested videos to be deleted
     user_in = input('Restore: are you sure? (y/n): ')
-    if user_in.lower() == 'y' or user_in.lower() == 'yes':          # Test for any yes response
-        video_data.write(bytes(0))                                       # restore video number to zero   
+    if user_in.lower() == 'y' or user_in.lower() == 'yes':      # Test for any yes response
+        video_data.write(bytes(0))                              # restore video number to zero   
     quit()
 
 video_data.write(str(video_num))            # write newe num
 video_data.close()
+
+servo_data = open("./data/servo_data","r+") # open servo data file
+servo_pos = { "tilt": servo_data.readline(), "pan": servo_data.readline() }
+
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Video Setup
@@ -87,6 +92,23 @@ BBox = None                              # Bounding box initialize
 
 pan_servo = ServoDriver.PanServo()
 tilt_servo = ServoDriver.TiltServo()
+
+
+while True:
+    current_time = time.clock_gettime(time.CLOCK_REALTIME) # get current time
+    print(current_time)
+
+#if current_time - prev_time >= 0.01:            
+
+            # tilt servo using proportional movement
+            #print(center)
+#                error_tilt = center[1] - (dimensions[0] / 2)
+#                tilt_servo.update(error=error_tilt, axis_range=(dimensions[0] / 2))
+            
+                       # pan servo using proportional movement
+#                error_pan = center[0] - (dimensions[1] / 2)
+#                pan_servo.update(error=error_pan, axis_range=(dimensions[1] / 2))
+#            prev_time = current_time
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -128,7 +150,7 @@ while True: # loop over every frame in video object
 
             current_time = time.clock_gettime(time.CLOCK_REALTIME) # get current time
  
-            
+           
             if current_time - prev_time >= 0.01:
             
                 print("servo update")
