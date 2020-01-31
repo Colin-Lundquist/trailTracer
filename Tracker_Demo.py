@@ -60,7 +60,7 @@ video_data.write(str(video_num))            # write newe num
 video_data.close()
 
 servo_data = open("./data/servo_data","r+") # open servo data file
-servo_pos = { "tilt": servo_data.readline(), "pan": servo_data.readline() }
+servo_pos = { "pan": int(servo_data.readline()), "tilt": int(servo_data.readline()) }
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -90,26 +90,9 @@ BBox = None                              # Bounding box initialize
 #   Servo Setup
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-pan_servo = ServoDriver.PanServo()
-tilt_servo = ServoDriver.TiltServo()
-
-
-while True:
-    current_time = time.clock_gettime(time.CLOCK_REALTIME) # get current time
-    print(current_time)
-
-#if current_time - prev_time >= 0.01:            
-
-            # tilt servo using proportional movement
-            #print(center)
-#                error_tilt = center[1] - (dimensions[0] / 2)
-#                tilt_servo.update(error=error_tilt, axis_range=(dimensions[0] / 2))
-            
-                       # pan servo using proportional movement
-#                error_pan = center[0] - (dimensions[1] / 2)
-#                pan_servo.update(error=error_pan, axis_range=(dimensions[1] / 2))
-#            prev_time = current_time
-
+pan_servo = ServoDriver.PanServo(pos=servo_pos["pan"])
+tilt_servo = ServoDriver.TiltServo(pos=servo_pos["tilt"])
+#pan_servo.moveDefault(pan_current = int(servo_pos["pan"]), tilt_current = int(servo_pos["pan"])
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Main Loop
@@ -123,6 +106,8 @@ while True: # loop over every frame in video object
         
     frame = video.read() # get video frame
     #print(time.clock_gettime(time.CLOCK_REALTIME))   
+    frame = cv2.blur(frame,(10,10))
+    #frame = imutils.resize(frame, width=320)
     # if the video object ends, exit program
     if frame is None:
         break
@@ -170,6 +155,8 @@ while True: # loop over every frame in video object
 
     if args.v is True: # Write to video
         video_out.write(frame)
+    
+
 
     cv2.imshow("My cute tracker :)", frame) # Show the frame on monitor
     key = cv2.waitKey(1) & 0xFF
@@ -181,11 +168,13 @@ while True: # loop over every frame in video object
 
     elif key == ord("q"):
         fan.set(on=0)
+        servo_data.seek(0,0)
+        servo_data.writelines([str(int(pan_servo.pos))+'\n', str(int(tilt_servo.pos))+'\n'])
+        
         break
 
 if args.v is True:
     video_out.release()
-video.release()
 
 cv2.destroyAllWindows()
 

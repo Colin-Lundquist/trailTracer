@@ -36,13 +36,12 @@ class Servo:
             self.pos = pos                  # Initialize position
         self.vel = self.DEFAULT_VEL         # Initialize velocity        
         
-        
     def update(self, error, axis_range):
       
         self.integral = self.integral + error * self.TIME_STEP             # Integral ramps up based on time in error
         self.derivative = (error - self.prev_error) / self.TIME_STEP       # Derivitave dampens based on speed
         
-        self.vel = self.P_FACTOR * error + self.I_FACTOR * self.integral \ # Combine all of P,I,D with their factors
+        self.vel = self.P_FACTOR * error + self.I_FACTOR * self.integral \
             - self.D_FACTOR * self.derivative
         self.prev_error = error             # save error value for next time
         
@@ -65,7 +64,7 @@ class PanServo(Servo):
     # PID control:
     TIME_STEP = 0.01
     DEAD_ZONE = 0.5
-    P_FACTOR = -0.1
+    P_FACTOR = -0.09
     I_FACTOR = 0.0
     D_FACTOR = 0.0018
 
@@ -82,7 +81,7 @@ class TiltServo(Servo):
     # PID control:
     TIME_STEP = 0.01
     DEAD_ZONE = 0.5     
-    P_FACTOR = 0.09
+    P_FACTOR = 0.08
     I_FACTOR = 0.0
     D_FACTOR = 0.0018
 
