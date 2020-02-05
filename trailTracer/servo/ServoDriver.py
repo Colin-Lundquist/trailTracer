@@ -18,7 +18,7 @@ class Servo:
     
     # PID control constants
     TIME_STEP = 0.01    # time between updates
-    DEAD_ZONE = 0.5     # minimum velocity to be applied to servo
+    DEAD_ZONE = 0.8     # minimum velocity to be applied to servo
     P_FACTOR = 0.0      # proportional multiplier (increases proportional effect)
     I_FACTOR = 0.0      # integral multiplier (increases integral effect)
     D_FACTOR = 0.0      # derivitave multiplier (increases derivitave effect)
