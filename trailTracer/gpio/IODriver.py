@@ -8,9 +8,11 @@
 
 import pigpio
 
+SERVO_EN_PIN = 22
 PAN_SERVO_PIN = 14
 TILT_SERVO_PIN = 25
 FAN_PIN = 15
+
 
 pi = pigpio.pi() # Create GPIO object
 
@@ -19,3 +21,5 @@ pi = pigpio.pi() # Create GPIO object
 pi.set_mode(PAN_SERVO_PIN, pigpio.OUTPUT)   # Pan servo output
 pi.set_mode(TILT_SERVO_PIN, pigpio.OUTPUT)  # Tilt servo output
 pi.set_mode(FAN_PIN, pigpio.OUTPUT)         # Fan control output
+pi.set_mode(SERVO_EN_PIN, pigpio.OUTPUT)    # Servo power control pin
+pi.set_pull_up_down(22, pigpio.PUD_DOWN)

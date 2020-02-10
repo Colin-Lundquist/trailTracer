@@ -24,6 +24,9 @@ import cv2
 
 CAMERA_BOOTTIME = 0.5
 
+IODriver.pi.write(22, 1)
+
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Argument Parsing
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -92,7 +95,7 @@ deltaBox = None
 
 pan_servo = ServoDriver.PanServo(pos=servo_pos["pan"])
 tilt_servo = ServoDriver.TiltServo(pos=servo_pos["tilt"])
-#pan_servo.moveDefault(pan_current = int(servo_pos["pan"]), tilt_current = int(servo_pos["pan"])
+#pan_servo.moveDefault(pan_current = int(servo_pos["pan"]), tilt_current = int(servo_pos["pan"]))
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Signal Handlers
@@ -102,8 +105,6 @@ def shutdown():
     fan.set(on=0)
     servo_data.seek(0,0)
     servo_data.writelines([str(int(pan_servo.pos))+'\n', str(int(tilt_servo.pos))+'\n'])
-
-    cv2.imwrite('test.jpg',im_out)
 
     if args.v is True:
         video_out.release()
@@ -126,10 +127,12 @@ last_gray = None
 img_out = None
 delta = None
 tracking = False
-tracker_timeout = 1.0
+tracker_timeout = 0.3
 tracking_still_time = 0.0
-acquiring_warmup = 0.3
+acquiring_warmup = 0.4
+acquiring_timeout = 0.2
 acquiring_still_time = 0.0
+acquisition_start_time = time.clock_gettime(time.CLOCK_REALTIME)
 
 acquire_contours = 0
 contours_list = [[0, 0], [0, 0], [0, 0]]
@@ -137,17 +140,21 @@ contours_list = [[0, 0], [0, 0], [0, 0]]
 while True: # loop over every frame in video object
        
     current_time = time.clock_gettime(time.CLOCK_REALTIME)
-
+    #acquisition_start_time = 0 + current_time
 
     img = video.read() # get video frame
     #print(time.clock_gettime(time.CLOCK_REALTIME))   
     #frame = cv2.blur(img,(10,10))
-    frame = img
+    frame = img.copy()
     gray = imutils.resize(img, width=320)
+        
     gray = cv2.cvtColor(gray, cv2.COLOR_BGR2GRAY)
-    cv2.fastNlMeansDenoising(gray, gray, searchWindowSize=5)               
-    
-    
+    cv2.imshow("Gray", gray)
+
+    gray = cv2.blur(gray,(10,10))
+
+
+        
     
     
     #frame = imutils.resize(frame, width=320)
@@ -167,6 +174,10 @@ while True: # loop over every frame in video object
     
     if tracking is True:
     #if BBox is not None:
+
+        IODriver.pi.write(22, 1)
+        print("servo ON")
+
         (success, BBox) = tracker.update(frame)
 
         #print(BBox)
@@ -176,7 +187,7 @@ while True: # loop over every frame in video object
 
         # check for tracker success
         if success:
-            print("tracking")            
+            
             (x, y, width, height) = [int(v) for v in BBox]
             cv2.rectangle(frame, (x,y), (x + width, y + height), (255,0,255), 2)
             center = (int(x + (width/2)), int(y + (height/2)))
@@ -196,33 +207,49 @@ while True: # loop over every frame in video object
                 error_pan = center[0] - (dimensions[1] / 2)
                 pan_servo.update(error=error_pan, axis_range=(dimensions[1] / 2))
            
-                print("error_tilt: %f", error_tilt)
+                #print("error_tilt: %f", error_tilt)
                 
-                if error_tilt < 10.0:
+                if error_tilt < 15.0 and error_pan < 15.0:
                     #print(error_tilt)
                     tracking_still_time += 0.01
                 else:
                     tracking_still_time = 0.0
+            
                 if tracking_still_time >= tracker_timeout:
-                    print("tracker_timeout")
+                    #print("tracker_timeout")
                     tracking = False
                     tracking_still_time = 0.0
-
+                    time.sleep(0.1)
+                    acquisition_start_time = current_time
                 
 
         else:
-            print("tracking_fail")
+            #print("tracking_failure")
             tracking = False
+            acquisition_start_time = current_time
     else:
-        print("Not Tracking")    
+        #print("Not Tracking")    
+        IODriver.pi.write(22, 0)
+        print("servo OFF")
+
         if not last_gray is None:
-            time.sleep(0.1)
-            delta = cv2.absdiff(gray, last_gray)
-            delta = cv2.threshold(delta, 25, 255, cv2.THRESH_BINARY)[1]
-            delta = cv2.erode(delta, None, iterations=1)
-            delta = cv2.dilate(delta, None, iterations=6)
             
-            cv2.imshow("gray", delta)
+            delta = cv2.absdiff(gray, last_gray)
+            cv2.fastNlMeansDenoising(delta, delta, searchWindowSize=5)               
+            delta = cv2.dilate(delta, None, iterations=5)
+
+
+            cv2.imshow("diff", delta)
+            delta = cv2.erode(delta, None, iterations=7)
+            delta = cv2.dilate(delta, None, iterations=2)
+            delta = cv2.threshold(delta, 4, 255, cv2.THRESH_BINARY)[1]
+            #delta = cv2.dilate
+            #delta = cv2.blur(delta, (10,10))
+            #delta = cv2.threshold(delta, 6, 255, cv2.THRESH_BINARY)[1]
+            #delta = cv2.erode(delta, None, iterations=2)
+            delta = cv2.dilate(delta, None, iterations=5)
+            
+            cv2.imshow("diff blurred", delta)
             
             cnts = cv2.findContours(delta.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             cnts = imutils.grab_contours(cnts)
@@ -231,7 +258,7 @@ while True: # loop over every frame in video object
                 c = max(cnts, key=cv2.contourArea)
                 #for c in cnts:
 #                    extLeft = tuple(c[c[:, :, 0].argmin()][0])
-                if (cv2.contourArea(c) > 800):
+                if (cv2.contourArea(c) > 600):
                     extLeft = tuple( c[c[:, :, 0].argmin()][0] )
                     extLeft = tuple( [x*2 for x in extLeft] )
 
@@ -246,15 +273,22 @@ while True: # loop over every frame in video object
 
                     cv2.rectangle(frame, (extLeft[0],extTop[1]),(extRight[0],extBot[1]), (255,255,0), thickness=3)
                     
-                    print(acquire_contours)
+                    #print(acquire_contours)
                     contours_list[acquire_contours][0] = c # Add a contour to the list
                     contours_list[acquire_contours][1] = (extLeft[0], extBot[1], (extRight[0] - extLeft[0]), (extTop[1] - extBot[1]))
                 
 
                     acquire_contours = acquire_contours + 1
+                   
+                    #print((current_time - acquisition_start_time))
+                    if current_time - acquisition_start_time > 0.3:
+                        acquire_contours = 0
+                        acquisition_start_time = 0 + current_time
+                        #print("took too long")
 
                     if acquire_contours >= 3:
                         
+                        acquisition_start_time = current_time
                         area_list = [x[1][2]*x[1][3] for x in contours_list]
                         max_index = area_list.index(max(area_list))
 
@@ -262,14 +296,15 @@ while True: # loop over every frame in video object
                     
                         #BBox = contours_list[max_index][1]
                         BBox = contours_list[2][1]
-                        print(BBox)
+                        #print(BBox)
                         tracking = True
                         acquire_contours = 0
                         #tracker.update(frame, BBox)
                         tracker = cv2.TrackerMedianFlow_create() 
                         tracker.init(frame, BBox)
+                        time.sleep(0.1)
         
-        last_gray = gray
+    last_gray = gray
             
             
 
@@ -279,6 +314,7 @@ while True: # loop over every frame in video object
 
     cv2.imshow("My cute tracker :)", frame) # Show the frame on monitor
     cv2.imshow("Output", img)
+    #cv2.imshow("Diff", 
     key = cv2.waitKey(1) & 0xFF
 
 
