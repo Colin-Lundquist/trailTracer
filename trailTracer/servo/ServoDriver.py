@@ -26,43 +26,57 @@ class Servo:
     
     prev_error = 0      # how much the servo was in error at Time: now - TIME_STEP 
     integral = 0        # integral component 'I'
-
+    enabled = False
 
     # class constructor
-    def __init__(self, pos=None):           
+    def __init__(self, pos=None, enabled=True):           
     
+        self.enabled = enabled
+
         if pos is None:
             self.pos = self.DEFAULT_POS     # set default position
         else:
             self.pos = pos                  # Initialize position
         self.vel = self.DEFAULT_VEL         # Initialize velocity        
-        
-    def update(self, error, axis_range):
-     
+    
 
-        if abs(error) > self.DEAD_ZONE:
-            self.integral = self.integral + error * self.TIME_STEP             # Integral ramps up based on time in error
-            self.derivative = (error - self.prev_error) / self.TIME_STEP       # Derivitave dampens based on speed
+    def update(self, error):
+
+        if self.enabled is True:
+            if abs(error) > self.DEAD_ZONE:
+                self.integral = self.integral + error * self.TIME_STEP             # Integral ramps up based on time in error
+                self.derivative = (error - self.prev_error) / self.TIME_STEP       # Derivitave dampens based on speed
         
-            self.vel = self.P_FACTOR * error + self.I_FACTOR * self.integral \
-                - self.D_FACTOR * self.derivative
+                self.vel = self.P_FACTOR * error + self.I_FACTOR * self.integral \
+                    - self.D_FACTOR * self.derivative
            
-            if abs(self.vel) > self.VEL_MAX:
-                self.vel = self.VEL_MAX if self.vel > 0 else -1*self.VEL_MAX
+                if abs(self.vel) > self.VEL_MAX:
+                    self.vel = self.VEL_MAX if self.vel > 0 else -1*self.VEL_MAX
 
-            self.pos = self.pos + self.vel
-            
-            IODriver.pi.set_servo_pulsewidth(self.GPIO_PIN, self.pos)
-            
-
-            if  (((self.pos + self.vel) <= self.POS_MAX) and ((self.pos + self.vel) >= self.POS_MIN)):
                 self.pos = self.pos + self.vel
+            
+                IODriver.pi.set_servo_pulsewidth(self.GPIO_PIN, self.pos)
+            
+
+                if  (((self.pos + self.vel) <= self.POS_MAX) and ((self.pos + self.vel) >= self.POS_MIN)):
+                    self.pos = self.pos + self.vel
+
+            else:
+                vel = self.DEFAULT_VEL
 
         else:
-            vel = self.DEFAULT_VEL
-
+            IODriver.pi.set_servo_pulsewidth(self.GPIO_PIN, 0)
+        
         self.prev_error = error             # save error value for next time
-            
+    
+
+    def enable(self):
+        self.enabled = True
+
+    def disable(self):
+        self.enabled = False
+        IODriver.pi.set_servo_pulsewidth(self.GPIO_PIN, 0)
+                       
 
 class PanServo(Servo):
 
@@ -83,7 +97,6 @@ class PanServo(Servo):
 
 
 class TiltServo(Servo):
-
     # Tilt Servo class attribute redefinitions
     POS_MAX = 1800      
     POS_MIN = 1200

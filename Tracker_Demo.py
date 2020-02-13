@@ -22,19 +22,32 @@ import signal
 import time
 import cv2
 
+
 CAMERA_BOOTTIME = 0.5
-
-IODriver.pi.write(22, 1)
-
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Argument Parsing
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 parser = argparse.ArgumentParser(description='trailTrace Tracking demo...\n\n')
-parser.add_argument('-v', help='Save video to file', action='store_true')
+parser.add_argument('-f', help='Save video to file', action='store_true')
 parser.add_argument('-r', help='Restore trailTracer:    Delete Videos', action='store_true')
+parser.add_argument('-v', help='Verbose output', action='store_true')
 args = parser.parse_args()
+
+    
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#   Display Splash
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+if args.v is True:
+    splash_screen = open("./data/splash.txt", "r")
+    for line in splash_screen:
+        print(line[0:-1])
+    #text = splash_screen.readlines()
+    #print(splash_screen)
+    splash_screen.close()
+ 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Fan Setup
@@ -44,38 +57,39 @@ fan = FanDriver.Fan()    # Create fan object
 fan.set(speed=0.8, on=1) # Fan on, speed 80%
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#   Load Data
+#   Video and Servo Data
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-video_data = open("./data/video_data","r+") # open video data file
-video_num = int(video_data.readline())      # read the current video number
-print(video_num)
-video_num += 1                              # increment video_number: next video will be ++
-video_data.seek(0,0)                        # move to beginning
-
-if args.r is True:                                              # User requested videos to be deleted
-    user_in = input('Restore: are you sure? (y/n): ')
-    if user_in.lower() == 'y' or user_in.lower() == 'yes':      # Test for any yes response
-        video_data.write(bytes(0))                              # restore video number to zero   
-    quit()
-
-video_data.write(str(video_num))            # write newe num
-video_data.close()
 
 servo_data = open("./data/servo_data","r+") # open servo data file
 servo_pos = { "pan": int(servo_data.readline()), "tilt": int(servo_data.readline()) }
-
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Video Setup
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-print("Beginning PiCam stream...")  # notify user
+print(" Beginning PiCam stream...")  # notify user
 #video = VideoStream(src=0).start()  # start camera stream
 video = WebcamVideoStream(src=0).start()
 time.sleep(CAMERA_BOOTTIME)         # allow camera to warm up
 
-if args.v is True: # Create video writer object if video argument is passed
+if args.f is True: # Create video writer object if video argument is passed
+
+    video_data = open("./data/video_data","r+") # open video data file
+    video_num = int(video_data.readline())      # read the current video number
+
+    print("save stream to: trailTracer/Videos/trailTrace_%d.mp4" % video_num)
+    video_num += 1                              # increment video_number: next video will be ++
+    video_data.seek(0,0)                        # move to beginning
+
+    if args.r is True:                                              # User requested videos to be deleted
+        user_in = input(' Restore: are you sure? (y/n): ')
+        if user_in.lower() == 'y' or user_in.lower() == 'yes':      # Test for any yes response
+            video_data.write(bytes(0))                              # restore video number to zero   
+        quit()
+
+    video_data.write(str(video_num))            # write new num
+    video_data.close()
+
     video_out = cv2.VideoWriter(filename='./Videos/trailTrace_%d.mp4' % video_num, 
             fourcc=cv2.VideoWriter_fourcc('X','2','6','4'), 
             fps=15, 
@@ -95,6 +109,7 @@ deltaBox = None
 
 pan_servo = ServoDriver.PanServo(pos=servo_pos["pan"])
 tilt_servo = ServoDriver.TiltServo(pos=servo_pos["tilt"])
+#tilt_servo.SetEnabled(enabled=1)                            # Disable tilt servo until we track
 #pan_servo.moveDefault(pan_current = int(servo_pos["pan"]), tilt_current = int(servo_pos["pan"]))
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -102,11 +117,15 @@ tilt_servo = ServoDriver.TiltServo(pos=servo_pos["tilt"])
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def shutdown():
+    
     fan.set(on=0)
+    tilt_servo.disable()
+
+
     servo_data.seek(0,0)
     servo_data.writelines([str(int(pan_servo.pos))+'\n', str(int(tilt_servo.pos))+'\n'])
 
-    if args.v is True:
+    if args.f is True:
         video_out.release()
 
     cv2.destroyAllWindows()
@@ -118,21 +137,28 @@ def ctrl_c_handler(sig, frame):
     
 signal.signal(signal.SIGINT, ctrl_c_handler)
 
+   
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Main Loop
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+# State Trackers
+
+states = {"Tracking": False, "Runtime": 0.0}
+
 
 prev_time = 0;
 last_gray = None
 img_out = None
 delta = None
 tracking = False
-tracker_timeout = 0.3
+tracker_timeout = 0.45
 tracking_still_time = 0.0
 acquiring_warmup = 0.4
 acquiring_timeout = 0.2
 acquiring_still_time = 0.0
-acquisition_start_time = time.clock_gettime(time.CLOCK_REALTIME)
+start_time = acquisition_start_time = time.clock_gettime(time.CLOCK_REALTIME)
 
 acquire_contours = 0
 contours_list = [[0, 0], [0, 0], [0, 0]]
@@ -140,6 +166,7 @@ contours_list = [[0, 0], [0, 0], [0, 0]]
 while True: # loop over every frame in video object
        
     current_time = time.clock_gettime(time.CLOCK_REALTIME)
+    states["Runtime"] = current_time - start_time
     #acquisition_start_time = 0 + current_time
 
     img = video.read() # get video frame
@@ -172,17 +199,18 @@ while True: # loop over every frame in video object
     
     
     
-    if tracking is True:
+    if states["Tracking"] is True:
     #if BBox is not None:
 
-        IODriver.pi.write(22, 1)
-        print("servo ON")
+        
+        #tilt_servo.SetEnabled(1)
+        #print("servo ON")
 
         (success, BBox) = tracker.update(frame)
 
         #print(BBox)
         
-        if args.v is True: # Write to video
+        if args.f is True: # Write to video
             video_out.write(img)
 
         # check for tracker success
@@ -201,36 +229,45 @@ while True: # loop over every frame in video object
             # tilt servo using proportional movement
             # print(center)
                 error_tilt = center[1] - (dimensions[0] / 2)
-                tilt_servo.update(error=error_tilt, axis_range=(dimensions[0] / 2))
+                tilt_servo.update(error=error_tilt)
             
                 # pan servo using proportional movement
                 error_pan = center[0] - (dimensions[1] / 2)
-                pan_servo.update(error=error_pan, axis_range=(dimensions[1] / 2))
+                pan_servo.update(error=error_pan)
            
                 #print("error_tilt: %f", error_tilt)
                 
                 if error_tilt < 15.0 and error_pan < 15.0:
                     #print(error_tilt)
                     tracking_still_time += 0.01
+                    #tilt_servo.SetEnabled(0)
+                    #tilt_servo.disable()
                 else:
                     tracking_still_time = 0.0
-            
-                if tracking_still_time >= tracker_timeout:
-                    #print("tracker_timeout")
-                    tracking = False
+                    #tilt_servo.SetEnabled(1)
+                    tilt_servo.enable()
+
+                # If our box gets too big, or we timeout standing stll
+                if tracking_still_time >= tracker_timeout or width*height > 202500: # 202,500 == 450x450 px
+                    print("tracker_timeout")
+                    states["Tracking"] = False
                     tracking_still_time = 0.0
                     time.sleep(0.1)
                     acquisition_start_time = current_time
-                
+                    tilt_servo.disable()
+                    #tilt_servo.SetEnabled(0)
 
         else:
-            #print("tracking_failure")
-            tracking = False
+            print("tracking_failure")
+            states["Tracking"] = False
+            tracking_still_time = 0.0
+            tilt_servo.disable()
+            time.sleep(0.25)
             acquisition_start_time = current_time
     else:
-        #print("Not Tracking")    
-        IODriver.pi.write(22, 0)
-        print("servo OFF")
+        #print("Not Tracking")
+        #tilt_servo.SetEnabled(0)
+        #print("servo OFF")
 
         if not last_gray is None:
             
@@ -238,6 +275,12 @@ while True: # loop over every frame in video object
             cv2.fastNlMeansDenoising(delta, delta, searchWindowSize=5)               
             delta = cv2.dilate(delta, None, iterations=5)
 
+            #delta = cv2.threshold(delta, 4, 255, cv2.THRESH_BINARY)[1]
+
+            #cnts = cv2.findCountours(delta.copy(),cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+            #for c in cnts
+            
 
             cv2.imshow("diff", delta)
             delta = cv2.erode(delta, None, iterations=7)
@@ -252,13 +295,15 @@ while True: # loop over every frame in video object
             cv2.imshow("diff blurred", delta)
             
             cnts = cv2.findContours(delta.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+
             cnts = imutils.grab_contours(cnts)
             
             if cnts:
                 c = max(cnts, key=cv2.contourArea)
                 #for c in cnts:
 #                    extLeft = tuple(c[c[:, :, 0].argmin()][0])
-                if (cv2.contourArea(c) > 600):
+                if (cv2.contourArea(c) > 1000):
                     extLeft = tuple( c[c[:, :, 0].argmin()][0] )
                     extLeft = tuple( [x*2 for x in extLeft] )
 
@@ -272,7 +317,9 @@ while True: # loop over every frame in video object
                     extBot = tuple( [x*2 for x in extBot] )
 
                     cv2.rectangle(frame, (extLeft[0],extTop[1]),(extRight[0],extBot[1]), (255,255,0), thickness=3)
-                    
+                    cv2.putText(frame, '%dx%d' %(extRight[0] - extLeft[0],extTop[1] - extBot[1]), (10,50), cv2.FONT_HERSHEY_COMPLEX,\
+                            fontScale=1, thickness=2, color=(0,255,100))                    
+
                     #print(acquire_contours)
                     contours_list[acquire_contours][0] = c # Add a contour to the list
                     contours_list[acquire_contours][1] = (extLeft[0], extBot[1], (extRight[0] - extLeft[0]), (extTop[1] - extBot[1]))
@@ -281,7 +328,7 @@ while True: # loop over every frame in video object
                     acquire_contours = acquire_contours + 1
                    
                     #print((current_time - acquisition_start_time))
-                    if current_time - acquisition_start_time > 0.3:
+                    if current_time - acquisition_start_time > 0.2:
                         acquire_contours = 0
                         acquisition_start_time = 0 + current_time
                         #print("took too long")
@@ -297,21 +344,29 @@ while True: # loop over every frame in video object
                         #BBox = contours_list[max_index][1]
                         BBox = contours_list[2][1]
                         #print(BBox)
-                        tracking = True
+                        states["Tracking"] = True
                         acquire_contours = 0
                         #tracker.update(frame, BBox)
                         tracker = cv2.TrackerMedianFlow_create() 
                         tracker.init(frame, BBox)
                         time.sleep(0.1)
-        
+                        #tilt_servo.SetEnabled(1)
+                        tilt_servo.enable()
     last_gray = gray
             
             
-
-
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #   Verbose output
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     
+    if args.v == True:
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+        print("# T+ %f" %states["Runtime"], "  Tracking: %s" %("False" if states["Tracking"] is False else "True"), \
+                "  Pan: %s" %("Disabled" if pan_servo.enabled is False else "Enabled"), "  Tilt: %s" %("Disabled" if\
+                tilt_servo.enabled is False else "Enabled")) 
 
-
+   #print(pan_servo.enabled)
+    
     cv2.imshow("My cute tracker :)", frame) # Show the frame on monitor
     cv2.imshow("Output", img)
     #cv2.imshow("Diff", 
@@ -322,8 +377,8 @@ while True: # loop over every frame in video object
         BBox = cv2.selectROI("My cute tracker :)", frame, fromCenter=False, showCrosshair=True)
         #print(BBox)
         tracker.init(frame, BBox)
-        tracking = True
-
+        states["Tracking"] = True
+        
     elif key == ord("q"):
         shutdown()       
         break
