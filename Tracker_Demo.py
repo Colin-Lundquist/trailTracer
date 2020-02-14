@@ -6,9 +6,6 @@
 #~~~~~~~~~~~~~~~~~~~~
 #~~~~~~~~~
 
-#from imutils.video import VideoStream
-#from imutils.video import FPS
-
 from imutils.video import WebcamVideoStream
 
 # trailTracer libraries
@@ -40,13 +37,10 @@ args = parser.parse_args()
 #   Display Splash
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-if args.v is True:
-    splash_screen = open("./data/splash.txt", "r")
-    for line in splash_screen:
-        print(line[0:-1])
-    #text = splash_screen.readlines()
-    #print(splash_screen)
-    splash_screen.close()
+splash_screen = open("./data/splash.txt", "r")
+for line in splash_screen:
+    print(line[0:-1])
+splash_screen.close()
  
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -54,7 +48,7 @@ if args.v is True:
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 fan = FanDriver.Fan()    # Create fan object
-fan.set(speed=0.8, on=1) # Fan on, speed 80%
+fan.set(speed=1.0, on=1) # Fan on, speed 80%
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Video and Servo Data
@@ -148,11 +142,7 @@ signal.signal(signal.SIGINT, ctrl_c_handler)
 #   Main Loop
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-
-# State Trackers
-
 states = {"Tracking": False, "Runtime": 0.0}
-
 
 prev_time = 0;
 last_gray = None
@@ -165,7 +155,8 @@ acquiring_warmup = 0.4
 acquiring_timeout = 0.2
 acquiring_still_time = 0.0
 start_time = acquisition_start_time = time.clock_gettime(time.CLOCK_REALTIME)
-
+error_tilt = None
+error_pan = None
 acquire_contours = 0
 contours_list = [[0, 0], [0, 0], [0, 0]]
 
@@ -173,10 +164,8 @@ while True: # loop over every frame in video object
        
     current_time = time.clock_gettime(time.CLOCK_REALTIME)
     states["Runtime"] = current_time - start_time
-    #acquisition_start_time = 0 + current_time
 
     img = video.read() # get video frame
-    #print(time.clock_gettime(time.CLOCK_REALTIME))   
     #frame = cv2.blur(img,(10,10))
     frame = img.copy()
     gray = imutils.resize(img, width=320)
@@ -187,34 +176,20 @@ while True: # loop over every frame in video object
     gray = cv2.blur(gray,(10,10))
 
 
-        
-    
-    
-    #frame = imutils.resize(frame, width=320)
     # if the video object ends, exit program
     if frame is None:
         break
 
-    # rotate frame 
-    #frame = imutils.rotate(frame, 180)
-    
+    #frame = imutils.rotate(frame, 180)    
+
     # get frame dimensions
     dimensions = tuple(frame.shape[:2])
     midpoint = tuple((x/2) for x in dimensions)
-    #print(midpoint)
-    
-    
+
     
     if states["Tracking"] is True:
-    #if BBox is not None:
-
-        
-        #tilt_servo.SetEnabled(1)
-        #print("servo ON")
 
         (success, BBox) = tracker.update(frame)
-
-        #print(BBox)
         
         if args.f is True: # Write to video
             video_out.write(img)
@@ -228,16 +203,11 @@ while True: # loop over every frame in video object
 
             cv2.circle(frame, center, 10, (0,0,255), -1)
 
-            #current_time = time.clock_gettime(time.CLOCK_REALTIME) # get current time
-           
             if current_time - prev_time >= 0.01:
-
-            # tilt servo using proportional movement
-            # print(center)
+  
                 error_tilt = center[1] - (dimensions[0] / 2)
                 tilt_servo.update(error=error_tilt)
             
-                # pan servo using proportional movement
                 error_pan = center[0] - (dimensions[1] / 2)
                 pan_servo.update(error=error_pan)
            
@@ -271,9 +241,6 @@ while True: # loop over every frame in video object
             time.sleep(0.25)
             acquisition_start_time = current_time
     else:
-        #print("Not Tracking")
-        #tilt_servo.SetEnabled(0)
-        #print("servo OFF")
 
         if not last_gray is None:
             
@@ -284,8 +251,6 @@ while True: # loop over every frame in video object
             #delta = cv2.threshold(delta, 4, 255, cv2.THRESH_BINARY)[1]
 
             #cnts = cv2.findCountours(delta.copy(),cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-            #for c in cnts
             
 
             cv2.imshow("diff", delta)
@@ -310,25 +275,18 @@ while True: # loop over every frame in video object
                 #for c in cnts:
 #                    extLeft = tuple(c[c[:, :, 0].argmin()][0])
                 if (cv2.contourArea(c) > 1000):
-                    extLeft = tuple( c[c[:, :, 0].argmin()][0] )
-                    extLeft = tuple( [x*2 for x in extLeft] )
+                    
+                    BBox = cv2.boundingRect(c)
+                    BBox = (x,y,w,h) = tuple([2*x for x in BBox] )
+                    
 
-                    extRight = tuple( c[c[:, :, 0].argmax()][0] )
-                    extRight = tuple( [x*2 for x in extRight] )
-
-                    extTop = tuple( c[c[:, :, -1].argmax()][0] )
-                    extTop = tuple( [x*2 for x in extTop] )
-
-                    extBot = tuple( c[c[:, :, -1].argmin()][0] )
-                    extBot = tuple( [x*2 for x in extBot] )
-
-                    cv2.rectangle(frame, (extLeft[0],extTop[1]),(extRight[0],extBot[1]), (255,255,0), thickness=3)
-                    cv2.putText(frame, '%dx%d' %(extRight[0] - extLeft[0],extTop[1] - extBot[1]), (10,50), cv2.FONT_HERSHEY_COMPLEX,\
+                    cv2.rectangle(frame, (x,y),(x + w,y + h), (255,255,0), thickness=3)
+                    cv2.putText(frame, '%dx%d' %((w),(h)), (10,50), cv2.FONT_HERSHEY_COMPLEX,\
                             fontScale=1, thickness=2, color=(0,255,100))                    
 
                     #print(acquire_contours)
                     contours_list[acquire_contours][0] = c # Add a contour to the list
-                    contours_list[acquire_contours][1] = (extLeft[0], extBot[1], (extRight[0] - extLeft[0]), (extTop[1] - extBot[1]))
+                    contours_list[acquire_contours][1] = (x, (y+h), w, h)
                 
 
                     acquire_contours = acquire_contours + 1
@@ -342,14 +300,6 @@ while True: # loop over every frame in video object
                     if acquire_contours >= 3:
                         
                         acquisition_start_time = current_time
-                        area_list = [x[1][2]*x[1][3] for x in contours_list]
-                        max_index = area_list.index(max(area_list))
-
-                        #max_index = contours_list.index(max([x[1][2]*x[1][3] for x in contours_list]))
-                    
-                        #BBox = contours_list[max_index][1]
-                        BBox = contours_list[2][1]
-                        #print(BBox)
                         states["Tracking"] = True
                         acquire_contours = 0
                         #tracker.update(frame, BBox)
@@ -366,11 +316,11 @@ while True: # loop over every frame in video object
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     
     if args.v == True:
-        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+        print("\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         print("# T+ %f" %states["Runtime"], "  Tracking: %s" %("False" if states["Tracking"] is False else "True"), \
                 "  Pan: %s" %("Disabled" if pan_servo.enabled is False else "Enabled"), "  Tilt: %s" %("Disabled" if\
-                tilt_servo.enabled is False else "Enabled")) 
-
+                tilt_servo.enabled is False else "Enabled"), "\n#\t\t\t\tError: %s" %(str(error_pan) if error_pan is not None else "N/A"),\
+                "  Error: %s" %(str(error_tilt) if error_tilt is not None else "N/A"), "\n#")
    #print(pan_servo.enabled)
     
     cv2.imshow("My cute tracker :)", frame) # Show the frame on monitor

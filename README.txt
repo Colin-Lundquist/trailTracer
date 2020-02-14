@@ -17,4 +17,9 @@ OpenCV 4.0.0:		Computer-Vision library for tracking of object / manipulation of 
 
 	opencv.org
 
+
+Additional Work Used:
+
+	Splash screen generated using:	 www.patorjk.com/software/taag
+
 	
