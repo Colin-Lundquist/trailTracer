@@ -21,7 +21,7 @@ import imutils
 import signal
 import time
 import cv2
-
+import os
 
 CAMERA_BOOTTIME = 0.5
 
@@ -77,17 +77,23 @@ if args.f is True: # Create video writer object if video argument is passed
     video_data = open("./data/video_data","r+") # open video data file
     video_num = int(video_data.readline())      # read the current video number
 
-    print("save stream to: trailTracer/Videos/trailTrace_%d.mp4" % video_num)
+
     video_num += 1                              # increment video_number: next video will be ++
+    print("save stream to: trailTracer/Videos/trailTrace_%d.mp4" % video_num)
+
     video_data.seek(0,0)                        # move to beginning
 
+    
     if args.r is True:                                              # User requested videos to be deleted
-        user_in = input(' Restore: are you sure? (y/n): ')
+        user_in = input(' Delete all Videos: are you sure? (y/n): ')
         if user_in.lower() == 'y' or user_in.lower() == 'yes':      # Test for any yes response
-            video_data.write(bytes(0))                              # restore video number to zero   
+            video_data.write("0\n")                              # restore video number to zero   
+            os.system("rm ./Videos/*.mp4")
         quit()
 
-    video_data.write(str(video_num))            # write new num
+    
+
+    video_data.write("%s\n" %(str(video_num)))            # write new num
     video_data.close()
 
     video_out = cv2.VideoWriter(filename='./Videos/trailTrace_%d.mp4' % video_num, 
