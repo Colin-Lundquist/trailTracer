@@ -38,7 +38,9 @@ class Servo:
         else:
             self.pos = pos                  # Initialize position
         self.vel = self.DEFAULT_VEL         # Initialize velocity        
-    
+            
+
+
 
     def update(self, error):
 
@@ -84,7 +86,7 @@ class PanServo(Servo):
     POS_MAX = 2380     
     POS_MIN = 520 
     VEL_MAX = 10
-    DEFAULT_POS = 2000 
+    DEFAULT_POS = 1500
     DEFAULT_VEL = 0 
     GPIO_PIN = 14
 
@@ -101,7 +103,7 @@ class TiltServo(Servo):
     POS_MAX = 1800      
     POS_MIN = 1200
     VEL_MAX = 10
-    DEFAULT_POS = 1550
+    DEFAULT_POS = 1500
     DEFAULT_VEL = 0     
     GPIO_PIN = 25
  
