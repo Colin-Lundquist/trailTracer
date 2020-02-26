@@ -29,7 +29,7 @@ class Servo:
     enabled = False
 
     # class constructor
-    def __init__(self, pos=None, enabled=True):           
+    def __init__(self, pos=None, enabled=False):           
     
         self.enabled = enabled
 
@@ -78,7 +78,8 @@ class Servo:
     def disable(self):
         self.enabled = False
         IODriver.pi.set_servo_pulsewidth(self.GPIO_PIN, 0)
-                       
+        self.prev_error = 0
+        self.integral = 0
 
 class PanServo(Servo):
 
@@ -110,8 +111,8 @@ class TiltServo(Servo):
     # PID control:
     TIME_STEP = 0.01
     DEAD_ZONE = 2.0
-    P_FACTOR = 0.08
+    P_FACTOR = 0.055
     I_FACTOR = 0.001
-    D_FACTOR = 0.000298
+    D_FACTOR = 0.0003
 
 
