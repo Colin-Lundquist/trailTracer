@@ -55,7 +55,7 @@ class Servo:
                 if abs(self.vel) > self.VEL_MAX:
                     self.vel = self.VEL_MAX if self.vel > 0 else -1*self.VEL_MAX
 
-                self.pos = self.pos + self.vel
+                #self.pos = self.pos + self.vel
             
                 IODriver.pi.set_servo_pulsewidth(self.GPIO_PIN, self.pos)
             
@@ -94,9 +94,9 @@ class PanServo(Servo):
     # PID control:
     TIME_STEP = 0.01
     DEAD_ZONE = 0.0
-    P_FACTOR = -0.05
+    P_FACTOR = -0.06
     I_FACTOR = 0.001
-    D_FACTOR = 0.00125
+    D_FACTOR = 0.0013
 
 
 class TiltServo(Servo):

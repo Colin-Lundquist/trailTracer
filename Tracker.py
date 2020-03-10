@@ -135,7 +135,7 @@ if args.f is True or args.r is True: # Create video writer object if video argum
 
     video_out = cv2.VideoWriter(filename='./Videos/trailTrace_%d.mp4' % video_num,
             fourcc=cv2.VideoWriter_fourcc('X','2','6','4'),
-            fps=15,
+            fps=30,
             frameSize=(640,480))
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -165,9 +165,14 @@ last_gray = None
 img_out = None
 delta = None
 tracking = False
-tracker_timeout = 0.45
+tracker_timeout = 0.2
 tracking_still_time = 0.0
 acquiring_warmup = 0.4
+
+fps_buf_count = 0
+running_total = 0
+avg_fps = 30
+
 acquiring_timeout = 0.2
 acquiring_still_time = 0.0
 start_time = acquisition_start_time = time.clock_gettime(time.CLOCK_REALTIME)
@@ -205,7 +210,7 @@ while True: # loop over every frame in video object
 
     if states["Tracking"] is True:
 
-        (success, BBox) = tracker.update(frame)
+        (success, BBox) = tracker.update(frame)     # Pass new frame to tracker
         
         # check for tracker success
         if success:
@@ -213,19 +218,19 @@ while True: # loop over every frame in video object
             (x, y, width, height) = [int(v) for v in BBox]
             center = (int(x + (width/2)), int(y + (height/2)))
 
-            if current_time - prev_time >= 0.01:
+            if current_time - prev_time >= 0.01:        # After each servo delta-t
 
-                error_tilt = center[1] - (dimensions[0] / 2)
-                tilt_servo.update(error=error_tilt)
+                error_tilt = center[1] - (dimensions[0] / 2)    
+                tilt_servo.update(error=error_tilt)         # Update tilt servo errer
 
                 error_pan = center[0] - (dimensions[1] / 2)
-                pan_servo.update(error=error_pan)
+                pan_servo.update(error=error_pan)           # Update pan servo error
 
                 if abs(error_tilt) < 15.0 and abs(error_pan) < 15.0:    # Stop servos if error is small enough
                     tracking_still_time += 0.01
                     pan_servo.disable()
                     tilt_servo.disable()
-                else:                                                   # Restart servos if th eobject leaves deadzone
+                else:                                                   # Restart servos if the eobject leaves deadzone
                     tracking_still_time = 0.0
                     tilt_servo.enable()
                     pan_servo.enable()
@@ -246,30 +251,27 @@ while True: # loop over every frame in video object
             tracking_still_time = 0.0
             tilt_servo.disable()
             pan_servo.disable()
-            time.sleep(0.25)
+            time.sleep(0.1)
             acquisition_start_time = current_time
-    else:
+    
+    else:   # Aqcuisition state
 
         if not last_gray is None:
 
             delta = cv2.absdiff(gray, last_gray)
             #cv2.fastNlMeansDenoising(delta, delta, searchWindowSize=5)
+            delta = cv2.threshold(delta, 15, 255,  cv2.THRESH_TOZERO)[1]
             delta = cv2.dilate(delta, None, iterations=5)
-
-            #delta = cv2.threshold(delta, 4, 255, cv2.THRESH_BINARY)[1]
-
-            #cnts = cv2.findCountours(delta.copy(),cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
 
             if args.v is True: cv2.imshow("diff", delta)
             delta = cv2.erode(delta, None, iterations=7)
-            delta = cv2.dilate(delta, None, iterations=2)
+            delta = cv2.dilate(delta, None, iterations=3)
             delta = cv2.threshold(delta, 4, 255, cv2.THRESH_BINARY)[1]
             #delta = cv2.dilate
             #delta = cv2.blur(delta, (10,10))
             #delta = cv2.threshold(delta, 6, 255, cv2.THRESH_BINARY)[1]
             #delta = cv2.erode(delta, None, iterations=2)
-            delta = cv2.dilate(delta, None, iterations=5)
+            delta = cv2.dilate(delta, None, iterations=7)
 
             small = imutils.resize(delta, width=40)
 
@@ -290,8 +292,6 @@ while True: # loop over every frame in video object
 
             if cnts:
                 c = max(cnts, key=cv2.contourArea)
-                #for c in cnts:
-#                    extLeft = tuple(c[c[:, :, 0].argmin()][0])
                 if (cv2.contourArea(c) > 1000):
 
                     BBox = cv2.boundingRect(c)
@@ -305,23 +305,20 @@ while True: # loop over every frame in video object
 
                     acquire_contours = acquire_contours + 1
 
-                    #print((current_time - acquisition_start_time))
+                    # 
                     if current_time - acquisition_start_time > 0.2:
                         acquire_contours = 0
                         acquisition_start_time = 0 + current_time
-                        #print("took too long")
 
                     if acquire_contours >= 3:
 
                         acquisition_start_time = current_time
                         states["Tracking"] = True
                         acquire_contours = 0
-                        #tracker.update(frame, BBox)
                         tracker = cv2.TrackerMedianFlow_create()
-                        print(BBox)
+                        #print(BBox)
                         tracker.init(frame, BBox)
-                        time.sleep(0.1)
-                        #tilt_servo.SetEnabled(1)
+                        #time.sleep(0.1)
                         tilt_servo.enable()
                         pan_servo.enable()
     last_gray = gray
@@ -343,9 +340,21 @@ while True: # loop over every frame in video object
         if args.v is True and BBox is not None:                       #img = frame.copy()
             img = frame.copy()    
             print(x for x in BBox)
-            cv2.rectangle(img, (int(BBox[0]),int(BBox[1])),(int(BBox[0]) + int(BBox[2]),int(BBox[1]) + int(BBox[3])), (255,255,0), thickness=3)
+            cv2.rectangle(img, (int(BBox[0]),int(BBox[1])),(int(BBox[0]) + int(BBox[2]),int(BBox[1]) + int(BBox[3])), (0,0,255), thickness=3)
+            
+            running_total += (current_time - prev_time)
+            fps_buf_count += 1
+
+            if fps_buf_count >= 5:
+                avg_fps = 1 / (running_total / fps_buf_count)
+                running_total = 0
+                fps_buf_count = 0
+
+            cv2.putText(img, "FPS: %d" %avg_fps, (10,100), cv2.FONT_HERSHEY_COMPLEX,\
+                fontScale=1, thickness=2, color=(255,0,0))
+    
             cv2.putText(img, '%dx%d' %((w),(h)), (10,50), cv2.FONT_HERSHEY_COMPLEX,\
-                fontScale=1, thickness=2, color=(0,255,100))
+                fontScale=1, thickness=2, color=(255,0,0))
             cv2.imshow("image", img)
        
         #cv2.imshow("Output", img)
