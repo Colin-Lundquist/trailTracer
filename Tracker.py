@@ -47,6 +47,10 @@ def shutdown():
     servo_data.writelines([str(int(pan_servo.pos))+'\n', str(int(tilt_servo.pos))+'\n'])
 
     if args.f is True:
+        for video_frame in video_list:             
+            cv2.imshow("image2", video_frame)
+            video_out.write(video_frame)         
+            time.sleep(1/30)
         video_out.release()
 
     cv2.destroyAllWindows()
@@ -115,6 +119,7 @@ if args.f is True or args.r is True: # Create video writer object if video argum
     video_num = int(video_data.readline())      # read the current video number
 
 
+
     video_num += 1                              # increment video_number: next video will be ++
     print("save stream to: trailTracer/Videos/trailTrace_%d.mp4" % video_num)
 
@@ -165,12 +170,13 @@ last_gray = None
 img_out = None
 delta = None
 tracking = False
-tracker_timeout = 0.2
+tracker_timeout = 0.1
 tracking_still_time = 0.0
 acquiring_warmup = 0.4
 
 fps_buf_count = 0
 running_total = 0
+video_list = []
 avg_fps = 30
 
 acquiring_timeout = 0.2
@@ -181,6 +187,8 @@ error_pan = None
 acquire_contours = 0
 contours_list = [[0, 0], [0, 0], [0, 0]]
 
+
+
 while True: # loop over every frame in video object
 
     current_time = time.clock_gettime(time.CLOCK_REALTIME)  # Get current realtime
@@ -189,14 +197,14 @@ while True: # loop over every frame in video object
     frame = video.read()                        # Get video frame
    
     if args.f is True: # Write to video
-        video_out.write(frame)
-
-
+        #video_out.write(frame)
+        video_list.append(frame)
+        print(len(video_list))
     if frame is None:                           # if the video object ends, exit program
         break
 
     if states["Tracking"] is False:                     # Don't perform this processing if not needed
-        gray = imutils.resize(frame, width=320)         # Resize for easier processing    
+        gray = imutils.resize(frame, width=320)        # Resize for easier processing    
         gray = cv2.cvtColor(gray, cv2.COLOR_BGR2GRAY)   # Convert to grayscale
         gray = cv2.blur(gray,(5,5))                     # Blur image
 
@@ -226,7 +234,7 @@ while True: # loop over every frame in video object
                 error_pan = center[0] - (dimensions[1] / 2)
                 pan_servo.update(error=error_pan)           # Update pan servo error
 
-                if abs(error_tilt) < 15.0 and abs(error_pan) < 15.0:    # Stop servos if error is small enough
+                if abs(error_tilt) < 20.0 and abs(error_pan) < 15.0:    # Stop servos if error is small enough
                     tracking_still_time += 0.01
                     pan_servo.disable()
                     tilt_servo.disable()
@@ -234,7 +242,7 @@ while True: # loop over every frame in video object
                     tracking_still_time = 0.0
                     tilt_servo.enable()
                     pan_servo.enable()
-
+                
                 # If our box gets too big, or we timeout standing stll
                 if tracking_still_time >= tracker_timeout or width*height > 202500: # 202,500 == 450x450 px
                     print("tracker_timeout")
@@ -281,7 +289,7 @@ while True: # loop over every frame in video object
                 for character in ascii_art:
                     print(ascii_art[i] if i % 40 != 0 else ascii_art[i] + '\n', end='')
                     i=i+1
-
+                os.system('clear')
             if args.v is True:
                 cv2.imshow("diff blurred", delta)
 
@@ -292,7 +300,7 @@ while True: # loop over every frame in video object
 
             if cnts:
                 c = max(cnts, key=cv2.contourArea)
-                if (cv2.contourArea(c) > 1000):
+                if (cv2.contourArea(c) > 2000): # 1000
 
                     BBox = cv2.boundingRect(c)
                     BBox = (x,y,w,h) = tuple([2*x for x in BBox] )
@@ -355,9 +363,10 @@ while True: # loop over every frame in video object
     
             cv2.putText(img, '%dx%d' %((w),(h)), (10,50), cv2.FONT_HERSHEY_COMPLEX,\
                 fontScale=1, thickness=2, color=(255,0,0))
-            cv2.imshow("image", img)
+            #img = imutils.resize(img, width=1280)
        
         #cv2.imshow("Output", img)
+            cv2.imshow("image", img)
 
         key = cv2.waitKey(1) & 0xFF
 
@@ -372,4 +381,3 @@ while True: # loop over every frame in video object
             break
 
     prev_time = current_time
-
